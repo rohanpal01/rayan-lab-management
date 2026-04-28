@@ -1,16 +1,21 @@
 package com.example.rayanlabmanagement.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 import java.util.UUID;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "patients")
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Patient {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     private String name;
@@ -19,7 +24,7 @@ public class Patient {
     private String contact;
     private String address;
     private String examinedBy;
-    private String uniquePatientId = UUID.randomUUID().toString();
+    private String uniquePatientId ;
 
     // getters and setters
 }

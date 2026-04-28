@@ -31,7 +31,6 @@ public class AnalyticsController {
     public long getDailyTestCount() {
         LocalDate today = LocalDate.now();
         return testRepo.findAll().stream()
-                .filter(t -> t.getSchedule().equalsIgnoreCase("Daily"))
                 .count();
     }
 

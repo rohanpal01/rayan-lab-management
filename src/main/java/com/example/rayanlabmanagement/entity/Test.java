@@ -1,9 +1,15 @@
 package com.example.rayanlabmanagement.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
-@Data
+import java.util.List;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "tests")
 public class Test {
@@ -12,10 +18,11 @@ public class Test {
     private Long id;
 
     private String testName;
-    private String sampleType;
-    private String description;
-    private String schedule;
+    private String category;
     private double price;
 
-    // getters and setters
+
+    @JsonManagedReference
+    @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<TestParameter> parameters;
 }

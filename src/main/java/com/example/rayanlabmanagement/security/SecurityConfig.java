@@ -25,28 +25,24 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean
+   /* @Bean
     public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
         AuthenticationManagerBuilder builder = http.getSharedObject(AuthenticationManagerBuilder.class);
         builder.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
         return builder.build();
-    }
+    }*/
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
-        http.csrf(AbstractHttpConfigurer::disable)
+        http
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> {}) // ✅ IMPORTANT
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/analytics/**").permitAll()
-                        .requestMatchers("/api/dashboard/**").permitAll()
-                        .requestMatchers("/samples/**").permitAll()
-                        .requestMatchers("/patients/**").permitAll()   // allow patient API
-                        .requestMatchers("/tests/**").permitAll()      // allow test API
-                        .requestMatchers("/results/**").permitAll()    // allow result API
-                        .requestMatchers("/billing/**").permitAll()    // allow billing API
-                        .requestMatchers("/inventory/**").permitAll()
-                        .anyRequest().authenticated())
-                .formLogin(AbstractHttpConfigurer::disable);
+                        .anyRequest().permitAll()   // 🔥 TEMP FULL OPEN
+                )
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable());
+
         return http.build();
     }
 }
