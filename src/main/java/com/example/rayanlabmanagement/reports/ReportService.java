@@ -45,142 +45,174 @@ public class ReportService {
 
         Document doc = new Document();
         PdfWriter writer = PdfWriter.getInstance(doc, out);
-        writer.setPageEvent(new FooterEvent()); // ✅ ADD THIS
+        writer.setPageEvent(new FooterEvent());
         doc.open();
 
+        // ================= HEADER LOGO =================
         PdfPTable headerTable = new PdfPTable(1);
         headerTable.setWidthPercentage(100);
 
-// Column width: logo small, text big
-        headerTable.setWidths(new float[]{5});
-
         Image logo = Image.getInstance(getClass().getResource("/static/Swati-Lab-Logo.png"));
         logo.scaleToFit(doc.getPageSize().getWidth(), 120);
-
-        logo.setWidthPercentage(100); // 🔥 important
+        logo.setWidthPercentage(100);
 
         PdfPCell logoCell = new PdfPCell();
         logoCell.addElement(logo);
         logoCell.setBorder(Rectangle.NO_BORDER);
-        logoCell.setVerticalAlignment(Element.ALIGN_CENTER);
+        logoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
 
         headerTable.addCell(logoCell);
-
-
         doc.add(headerTable);
+
         doc.add(new Paragraph(" "));
 
-
-        // ================= PATIENT INFO BOX =================
+        // ================= PATIENT INFO =================
         Font normal = new Font(Font.HELVETICA, 9);
-        Font bold = new Font(Font.HELVETICA, 9, Font.BOLD);
 
         PdfPTable infoTable = new PdfPTable(3);
         infoTable.setWidthPercentage(100);
         infoTable.setWidths(new float[]{3, 3, 1});
 
-        // -------- LEFT SIDE --------
-        PdfPCell leftCell = new PdfPCell();
-        leftCell.setBorder(Rectangle.NO_BORDER);
+        // LEFT
+        PdfPCell left = new PdfPCell();
+        left.setBorder(Rectangle.NO_BORDER);
 
-        leftCell.addElement(new Paragraph("Reg. No      : " +
+        left.addElement(new Paragraph("Reg. No      : " +
                 (report.getPatient().getUniquePatientId() != null
                         ? report.getPatient().getUniquePatientId() : "N/A"), normal));
 
-        leftCell.addElement(new Paragraph("Name         : " + report.getPatient().getName(), normal));
+        left.addElement(new Paragraph("Name         : " + report.getPatient().getName(), normal));
 
-        leftCell.addElement(new Paragraph("Age/Gender   : " +
+        left.addElement(new Paragraph("Age/Gender   : " +
                 report.getPatient().getAge() + "/" + report.getPatient().getGender(), normal));
 
-        leftCell.addElement(new Paragraph("Mob No.   : " +
+        left.addElement(new Paragraph("Mob No.      : " +
                 report.getPatient().getContact(), normal));
 
-        leftCell.addElement(new Paragraph("Ref. By      : " + report.getPatient().getExaminedBy(), normal));
+        left.addElement(new Paragraph("Ref. By      : " +
+                report.getPatient().getExaminedBy(), normal));
 
-        leftCell.addElement(new Paragraph("Investigation(s): " +
+        left.addElement(new Paragraph("Investigation(s): " +
                 report.getResults().stream()
                         .map(r -> r.getTest().getTestName())
                         .collect(Collectors.joining(", ")), normal));
 
-        infoTable.addCell(leftCell);
+        infoTable.addCell(left);
 
-        // -------- RIGHT SIDE --------
-        PdfPCell rightCell = new PdfPCell();
-        rightCell.setBorder(Rectangle.NO_BORDER);
+        // RIGHT
+        PdfPCell right = new PdfPCell();
+        right.setBorder(Rectangle.NO_BORDER);
 
-        rightCell.addElement(new Paragraph("Collected at : " + LocalDateTime.now(), normal));
-        rightCell.addElement(new Paragraph("Reported at  : " + report.getCreatedAt(), normal));
+        right.addElement(new Paragraph("Collected at : " + LocalDateTime.now(), normal));
+        right.addElement(new Paragraph("Reported at  : " + report.getCreatedAt(), normal));
 
-        infoTable.addCell(rightCell);
+        infoTable.addCell(right);
 
-        // -------- QR CODE --------
-        String qrText = "Patient :" +  report.getPatient().getName() + "-------- SWATI DIAGNOSTIC CENTER";
+        // QR CODE
+        String qrText = "Patient: " + report.getPatient().getName() + "---------SWATI DIAGNOSTIC CENTER";
 
-        QRCodeWriter qrCodeWriter = new QRCodeWriter();
-        BitMatrix bitMatrix = qrCodeWriter.encode(qrText, BarcodeFormat.QR_CODE, 100, 100);
+        QRCodeWriter qrWriter = new QRCodeWriter();
+        BitMatrix matrix = qrWriter.encode(qrText, BarcodeFormat.QR_CODE, 100, 100);
 
-        ByteArrayOutputStream pngOutputStream = new ByteArrayOutputStream();
-        MatrixToImageWriter.writeToStream(bitMatrix, "PNG", pngOutputStream);
+        ByteArrayOutputStream png = new ByteArrayOutputStream();
+        MatrixToImageWriter.writeToStream(matrix, "PNG", png);
 
-        Image qrImage = Image.getInstance(pngOutputStream.toByteArray());
+        Image qrImg = Image.getInstance(png.toByteArray());
 
-        PdfPCell qrCell = new PdfPCell(qrImage);
+        PdfPCell qrCell = new PdfPCell(qrImg);
         qrCell.setBorder(Rectangle.NO_BORDER);
         qrCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
 
         infoTable.addCell(qrCell);
 
-        // -------- WRAP IN BORDER BOX --------
         PdfPCell wrapper = new PdfPCell(infoTable);
         wrapper.setPadding(10);
         wrapper.setBorder(Rectangle.BOX);
 
-        PdfPTable outerTable = new PdfPTable(1);
-        outerTable.setWidthPercentage(100);
-        outerTable.addCell(wrapper);
+        PdfPTable outer = new PdfPTable(1);
+        outer.setWidthPercentage(100);
+        outer.addCell(wrapper);
 
-        doc.add(outerTable);
+        doc.add(outer);
         doc.add(new Paragraph(" "));
 
-// LOOP TESTS
+        // ================= TESTS =================
         for (Result result : report.getResults()) {
 
-            Paragraph testCategory = new Paragraph(result.getTest().getCategory() + " EXAMINATION\n");
-            testCategory.setAlignment(Element.ALIGN_CENTER);
-            doc.add(testCategory);
+            // CATEGORY TITLE
+            Paragraph category = new Paragraph(result.getTest().getCategory().toUpperCase() + " EXAMINATION");
+            category.setAlignment(Element.ALIGN_CENTER);
+            category.setSpacingAfter(5);
+            doc.add(category);
 
-            doc.add(new Paragraph("Test: " + result.getTest().getTestName()));
+            // TEST NAME BOX
+            Font testFont = new Font(Font.HELVETICA, 11, Font.BOLD);
 
+            PdfPCell testCell = new PdfPCell(
+                    new Phrase("Test: " + result.getTest().getTestName(), testFont)
+            );
+            testCell.setPadding(8);
+            testCell.setBackgroundColor(new Color(230, 230, 230));
 
+            PdfPTable testTable = new PdfPTable(1);
+            testTable.setWidthPercentage(25);
 
+            testTable.setHorizontalAlignment(Element.ALIGN_LEFT);
+            testTable.setSpacingAfter(5);
+            testTable.addCell(testCell);
+
+            doc.add(testTable);
+
+            // TABLE
             PdfPTable table = new PdfPTable(4);
             table.setWidthPercentage(100);
+            table.setSpacingBefore(0);
 
-            table.addCell("Parameter");
-            table.addCell("Value");
-            table.addCell("Unit");
-            table.addCell("Reference");
+            // HEADER
+            Font headerFont = new Font(Font.HELVETICA, 10, Font.BOLD);
+            Font paramValueFont = new Font(Font.HELVETICA, 9, Font.NORMAL);
+            String[] headers = {"PARAMETER", "VALUE", "UNIT", "REFERENCE RANGE"};
 
+            for (String h : headers) {
+                PdfPCell cell = new PdfPCell(new Phrase(h, headerFont));
+                cell.setBackgroundColor(new Color(200, 200, 200));
+                cell.setPadding(7);
+                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                table.addCell(cell);
+            }
+
+            // DATA ROWS
             for (ResultParameter rp : result.getParameters()) {
-                table.addCell(rp.getParameter().getParamName());
-                table.addCell(rp.getValue());
-                table.addCell(rp.getParameter().getUnit());
-                table.addCell(
-                        rp.getParameter().getRefMin() + " - " + rp.getParameter().getRefMax()
-                );
+
+                PdfPCell c1 = new PdfPCell(new Phrase(rp.getParameter().getParamName(),paramValueFont));
+                PdfPCell c2 = new PdfPCell(new Phrase(rp.getValue(),paramValueFont));
+                PdfPCell c3 = new PdfPCell(new Phrase(rp.getParameter().getUnit(),paramValueFont));
+                PdfPCell c4 = new PdfPCell(new Phrase(
+                        rp.getParameter().getRefMin() + " - " + rp.getParameter().getRefMax(),paramValueFont
+                ));
+
+                for (PdfPCell c : Arrays.asList(c1, c2, c3, c4)) {
+                    c.setPadding(6);
+                    c.setHorizontalAlignment(Element.ALIGN_CENTER);
+                    c.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                }
+
+                table.addCell(c1);
+                table.addCell(c2);
+                table.addCell(c3);
+                table.addCell(c4);
             }
 
             doc.add(table);
             doc.add(new Paragraph(" "));
         }
 
-// REMARK
+        // ================= REMARK =================
         doc.add(new Paragraph("Remark: " + report.getRemark()));
-
 
         doc.close();
 
-
-        return out.toByteArray(); // ✅ THIS is your PDF
+        return out.toByteArray();
     }
 }
