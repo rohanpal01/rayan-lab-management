@@ -62,7 +62,8 @@ public class ResultController {
     @PostMapping("/entry")
     public Report saveReport(@RequestBody ResultDTO dto) {
 
-        Patient patient = patientRepo.findByName(dto.getPatientName());
+        Patient patient = patientRepo.findById(dto.getPatientId())
+                .orElseThrow(() -> new RuntimeException("Patient not found"));
 
         Report report = new Report();
         report.setPatient(patient);
@@ -105,10 +106,10 @@ public class ResultController {
     }
 
     @GetMapping("/{id}/report")
-    public ResponseEntity<byte[]> downloadReport(@PathVariable Long id)  throws Exception  {
+    public ResponseEntity<byte[]> downloadReport(@PathVariable Long id,  @RequestParam(defaultValue = "false") boolean prePrinted)  throws Exception  {
 
 
-        byte[] pdf = reportService.generatePdf(id);
+        byte[] pdf = reportService.generatePdf(id,prePrinted);
         Report report = reportRepo.findById(id).orElseThrow();
         String uniqueId = report.getPatient().getUniquePatientId();
         String date = LocalDate.now().toString();

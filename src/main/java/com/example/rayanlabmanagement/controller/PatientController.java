@@ -28,11 +28,13 @@ public class PatientController {
         }
 
         // Fallback: check by name + contact (if contact provided)
-        Patient existingByName = repo.findByName(patient.getName());
-        if (existingByName != null && patient.getContact() != null
-                && patient.getContact().equals(existingByName.getContact())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Patient already exists"));
+        List<Patient> existingByName = repo.findByName(patient.getName());
+        for(Patient patientData : existingByName) {
+            if (patientData != null && patient.getContact() != null
+                    && patient.getContact().equals(patientData.getContact())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("error", "Patient already exists"));
+            }
         }
 
         Patient saved = repo.save(patient);

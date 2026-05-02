@@ -6,7 +6,7 @@ import java.util.List;
 
 @Data
 public class ResultDTO {
-    private String patientName;
+    private Long patientId;
     private List<TestResultDTO> tests;
     private String remark;
 }

@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 
 import java.net.URL;
 import java.net.URLEncoder;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -37,43 +38,59 @@ public class ReportService {
     @Autowired
     private ReportRepository reportRepo;
 
-    public byte[] generatePdf(Long id) throws Exception {
+    public byte[] generatePdf(Long id, boolean prePrinted) throws Exception {
 
         Report report = reportRepo.findById(id).orElseThrow();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        Document doc = new Document();
+        // ================= DOCUMENT SETUP =================
+        Document doc;
+        if (prePrinted) {
+            // Adjust these margins based on your printed sheet
+            doc = new Document(PageSize.A4, 50, 36, 160, 120);
+        } else {
+            doc = new Document(PageSize.A4, 36, 36, 36, 36);
+        }
+
         PdfWriter writer = PdfWriter.getInstance(doc, out);
-        writer.setPageEvent(new FooterEvent());
+
+        // Footer only for normal mode
+        if (!prePrinted) {
+            writer.setPageEvent(new FooterEvent());
+        }
+
         doc.open();
 
-        // ================= HEADER LOGO =================
-        PdfPTable headerTable = new PdfPTable(1);
-        headerTable.setWidthPercentage(100);
+        // ================= HEADER (ONLY NORMAL MODE) =================
+        if (!prePrinted) {
 
-        Image logo = Image.getInstance(getClass().getResource("/static/Swati-Lab-Logo.png"));
-        logo.scaleToFit(doc.getPageSize().getWidth(), 120);
-        logo.setWidthPercentage(100);
+            PdfPTable headerTable = new PdfPTable(1);
+            headerTable.setWidthPercentage(100);
 
-        PdfPCell logoCell = new PdfPCell();
-        logoCell.addElement(logo);
-        logoCell.setBorder(Rectangle.NO_BORDER);
-        logoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            Image logo = Image.getInstance(getClass().getResource("/static/Swati-Lab-Logo.png"));
+            logo.scaleToFit(doc.getPageSize().getWidth(), 120);
+            logo.setWidthPercentage(100);
 
-        headerTable.addCell(logoCell);
-        doc.add(headerTable);
+            PdfPCell logoCell = new PdfPCell();
+            logoCell.addElement(logo);
+            logoCell.setBorder(Rectangle.NO_BORDER);
+            logoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
 
-        doc.add(new Paragraph(" "));
+            headerTable.addCell(logoCell);
+            doc.add(headerTable);
 
-        // ================= PATIENT INFO =================
+            doc.add(new Paragraph(" "));
+        }
+
+        // ================= PATIENT INFO BLOCK =================
         Font normal = new Font(Font.HELVETICA, 9);
 
         PdfPTable infoTable = new PdfPTable(3);
         infoTable.setWidthPercentage(100);
-        infoTable.setWidths(new float[]{3, 3, 1});
+        infoTable.setWidths(new float[]{4, 3, 2});
 
-        // LEFT
+        // -------- LEFT --------
         PdfPCell left = new PdfPCell();
         left.setBorder(Rectangle.NO_BORDER);
 
@@ -99,35 +116,39 @@ public class ReportService {
 
         infoTable.addCell(left);
 
-        // RIGHT
+        // -------- RIGHT --------
         PdfPCell right = new PdfPCell();
         right.setBorder(Rectangle.NO_BORDER);
 
-        right.addElement(new Paragraph("Collected at : " + LocalDateTime.now(), normal));
+        right.addElement(new Paragraph("Collected at : " + LocalDate.now(), normal));
         right.addElement(new Paragraph("Reported at  : " + report.getCreatedAt(), normal));
 
         infoTable.addCell(right);
 
-        // QR CODE
-        String qrText = "Patient: " + report.getPatient().getName() + "---------SWATI DIAGNOSTIC CENTER";
+        // -------- QR CODE (ALWAYS) --------
+        String qrText = "Patient: " + report.getPatient().getName() + "--------SWATI DIAGNOSTIC CENTER";
 
         QRCodeWriter qrWriter = new QRCodeWriter();
-        BitMatrix matrix = qrWriter.encode(qrText, BarcodeFormat.QR_CODE, 100, 100);
+        BitMatrix matrix = qrWriter.encode(qrText, BarcodeFormat.QR_CODE, 120, 120);
 
         ByteArrayOutputStream png = new ByteArrayOutputStream();
         MatrixToImageWriter.writeToStream(matrix, "PNG", png);
 
         Image qrImg = Image.getInstance(png.toByteArray());
+        qrImg.scaleToFit(100, 100);
 
         PdfPCell qrCell = new PdfPCell(qrImg);
         qrCell.setBorder(Rectangle.NO_BORDER);
         qrCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        qrCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
         infoTable.addCell(qrCell);
 
+        // -------- WRAPPER (BORDER BOX) --------
         PdfPCell wrapper = new PdfPCell(infoTable);
         wrapper.setPadding(10);
         wrapper.setBorder(Rectangle.BOX);
+        wrapper.setBorderWidth(1.2f);
 
         PdfPTable outer = new PdfPTable(1);
         outer.setWidthPercentage(100);
@@ -140,7 +161,9 @@ public class ReportService {
         for (Result result : report.getResults()) {
 
             // CATEGORY TITLE
-            Paragraph category = new Paragraph(result.getTest().getCategory().toUpperCase() + " EXAMINATION");
+            Paragraph category = new Paragraph(
+                    result.getTest().getCategory().toUpperCase() + " EXAMINATION"
+            );
             category.setAlignment(Element.ALIGN_CENTER);
             category.setSpacingAfter(5);
             doc.add(category);
@@ -151,27 +174,25 @@ public class ReportService {
             PdfPCell testCell = new PdfPCell(
                     new Phrase("Test: " + result.getTest().getTestName(), testFont)
             );
-            testCell.setPadding(8);
+            testCell.setPadding(6);
             testCell.setBackgroundColor(new Color(230, 230, 230));
 
             PdfPTable testTable = new PdfPTable(1);
             testTable.setWidthPercentage(25);
-
             testTable.setHorizontalAlignment(Element.ALIGN_LEFT);
             testTable.setSpacingAfter(5);
             testTable.addCell(testCell);
 
             doc.add(testTable);
 
-            // TABLE
+            // RESULT TABLE
             PdfPTable table = new PdfPTable(4);
             table.setWidthPercentage(100);
-            table.setSpacingBefore(0);
 
-            // HEADER
             Font headerFont = new Font(Font.HELVETICA, 10, Font.BOLD);
-            Font paramValueFont = new Font(Font.HELVETICA, 9, Font.NORMAL);
-            String[] headers = {"PARAMETER", "VALUE", "UNIT", "REFERENCE RANGE"};
+            Font valueFont = new Font(Font.HELVETICA, 9);
+
+            String[] headers = {"PARAMETER", "VALUE", "UNIT", "REFERENCE"};
 
             for (String h : headers) {
                 PdfPCell cell = new PdfPCell(new Phrase(h, headerFont));
@@ -182,14 +203,13 @@ public class ReportService {
                 table.addCell(cell);
             }
 
-            // DATA ROWS
             for (ResultParameter rp : result.getParameters()) {
 
-                PdfPCell c1 = new PdfPCell(new Phrase(rp.getParameter().getParamName(),paramValueFont));
-                PdfPCell c2 = new PdfPCell(new Phrase(rp.getValue(),paramValueFont));
-                PdfPCell c3 = new PdfPCell(new Phrase(rp.getParameter().getUnit(),paramValueFont));
+                PdfPCell c1 = new PdfPCell(new Phrase(rp.getParameter().getParamName(), valueFont));
+                PdfPCell c2 = new PdfPCell(new Phrase(rp.getValue(), valueFont));
+                PdfPCell c3 = new PdfPCell(new Phrase(rp.getParameter().getUnit(), valueFont));
                 PdfPCell c4 = new PdfPCell(new Phrase(
-                        rp.getParameter().getRefMin() + " - " + rp.getParameter().getRefMax(),paramValueFont
+                        rp.getParameter().getRefMin() + " - " + rp.getParameter().getRefMax(), valueFont
                 ));
 
                 for (PdfPCell c : Arrays.asList(c1, c2, c3, c4)) {
