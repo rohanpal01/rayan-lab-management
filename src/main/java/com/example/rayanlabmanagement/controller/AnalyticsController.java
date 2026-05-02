@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000")
 @RequestMapping("/analytics")
 public class AnalyticsController {
 
