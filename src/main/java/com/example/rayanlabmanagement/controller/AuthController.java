@@ -31,22 +31,70 @@ public class AuthController {
         String password = body.get("password");
 
         Optional<User> userOpt = userRepository.findByUsername(username);
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (user.getPassword().equals(password)) {
-                return ResponseEntity.ok(Map.of("message", "Login successful", "role", user.getRole()));
-            } else {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid password");
-            }
-        } else {
-            // Auto-register if user doesn’t exist
-            User newUser = new User();
-            newUser.setUsername(username);
-            newUser.setPassword(password); // plain text
-            newUser.setRole("ROLE_USER");
-            userRepository.save(newUser);
-            return ResponseEntity.ok(Map.of("message", "User registered and logged in", "role", newUser.getRole()));
+        if (userOpt.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body("❌ User not found. Please register first.");
         }
+
+        User user = userOpt.get();
+
+        if (!user.getPassword().equals(password)) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("❌ Invalid password");
+        }
+
+        return ResponseEntity.ok(
+                Map.of("message", "Login successful", "role", user.getRole())
+        );
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
+
+        String username = body.get("username");
+        String password = body.get("password");
+        String role = body.get("role"); // 👈 NEW
+
+        // ✅ Validate role
+        if (role == null || role.isEmpty()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("❌ Role is required");
+        }
+
+        // ✅ Normalize role
+        role = role.toUpperCase();
+
+        // ✅ Allow only valid roles
+        if (!role.equals("ADMIN") &&
+                !role.equals("TECHNICIAN") &&
+                !role.equals("RECEPTION")) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body("❌ Invalid role selected");
+        }
+
+        Optional<User> existingUser = userRepository.findByUsername(username);
+
+        if (existingUser.isPresent()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("❌ Username already exists");
+        }
+
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(password);
+
+        // ✅ Append ROLE_
+        user.setRole("ROLE_" + role);
+
+        userRepository.save(user);
+
+        return ResponseEntity.ok("✅ User registered successfully");
     }
 
     @GetMapping("/admin-only")
